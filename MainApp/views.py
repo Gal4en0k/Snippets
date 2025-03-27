@@ -3,6 +3,8 @@ from django.shortcuts import get_object_or_404, render, redirect
 from MainApp.forms import SnippetForm
 from MainApp.models import Snippet
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib import auth
+
 
 
 def index_page(request):
@@ -19,20 +21,49 @@ def add_snippet_page(request):
     if request.method == "POST":
         form = SnippetForm(request.POST)
         if form.is_valid():
-            form.save()
+            snippet = form.save(commit = False)
+            if request.user.is_authenticated:
+                snippet.user = request.user
+                snippet.save()
             return redirect("list_snip")
         return render(request, "pages/add_snippet.html", {'form':form})
     
 
 
 def snippets_page(request):
+    if request.user.is_authenticated:
+        snippets = Snippet.objects.filter(is_public = True).union(Snippet.objects.filter(user = request.user))
+        snippets_count =  snippets.count()
+        context = {
+            'pagename': 'Просмотр сниппетов',
+            'snippets' : snippets      ,      
+            'snippets_count': snippets_count}
+        return render(request, 'pages/view_snippets.html', context)
+    else:
+        snippets = Snippet.objects.filter(is_public = True)
+        snippets_count =  snippets.count()
+        context = {
+            'pagename': 'Просмотр сниппетов',
+            'snippets' : snippets      ,      
+            'snippets_count': snippets_count}
+        return render(request, 'pages/view_snippets.html', context)
+    
+def snippets_my(request):
+    if request.user.is_authenticated:
+        snippets = Snippet.objects.filter(user = request.user)
+        snippets_count =  Snippet.objects.filter(user = request.user).count()
+        if snippets_count > 0:
+            context = {
+            'pagename': 'Просмотр сниппетов',
+            'snippets' : snippets      ,      
+            'snippets_count': snippets_count}
+        return render(request, 'pages/view_snippets.html', context)
+    # Return error message - Вы не залогинены или У вас нет ни одного сниппета 
+    # тогда показываем все - доработать здесь не срабатывает
     snippets = Snippet.objects.all()
-    snippets_count =  Snippet.objects.count()
-    context = {
-        'pagename': 'Просмотр сниппетов',
-        'snippets' : snippets      ,      
-        'snippets_count': snippets_count}
+    snippets_count =  Snippet.objects.count()  
     return render(request, 'pages/view_snippets.html', context)
+
 
 def snippet_detail(request, snippet_id: int):
     context = {"pagename": 'Просмотр сниппета'}
@@ -46,17 +77,27 @@ def snippet_detail(request, snippet_id: int):
         return render(request, 'pages/snippet_detail.html', context)
 
 def snippet_delete(request, snippet_id: int):
-    if request.method in ("POST" , "GET"):
-        snippet = get_object_or_404(Snippet, id=snippet_id) 
-        snippet.delete()
-    return redirect("list_snip")
+    if request.user.is_authenticated: 
+        if request.method in ("POST" , "GET"):
+            snippet = get_object_or_404(Snippet, id=snippet_id) 
+            if snippet.user == request.user:
+                snippet.delete()
+        return redirect("list_snip")
+    else:
+        return redirect("list_snip")
 
 def snippet_edit(request, snippet_id: int):
-    context = {"pagename": 'редактирование сниппета'}
-    try:
-        snippet = Snippet.objects.get(id=snippet_id) 
-    except ObjectDoesNotExist: 
-        return Http404
+    if request.user.is_authenticated:
+        context = {"pagename": 'редактирование сниппета'}
+        try:
+            snippet = Snippet.objects.get(id=snippet_id) 
+            if  snippet.user != request.user:
+                #сообщение об ошибке - вы пытаетесь править чужой сниппет
+                return redirect("list_snip")   
+        except ObjectDoesNotExist: 
+            return Http404
+    else:
+        return redirect("list_snip")
     #variant1
     # if request.method == "GET":
     #     form = SnippetForm(instance=snippet)
@@ -86,4 +127,30 @@ def snippet_edit(request, snippet_id: int):
 #             return redirect("list_snip")
 #         return render(request, "pages/add_snippet.html", {'form':form})
 
+def login(request):
+    if request.method == 'POST':
+       username = request.POST.get("username")
+       password = request.POST.get("password")
+from django.contrib import auth
+from django.shortcuts import redirect
+...
+def login(request):
+   if request.method == 'POST':
+       username = request.POST.get("username")
+       password = request.POST.get("password")
+       # print("username =", username)
+       # print("password =", password)
+       user = auth.authenticate(request, username=username, password=password)
+       if user is not None:
+           auth.login(request, user)
+       else:
+           # Return error message
+           pass
+   return redirect('home')
 
+
+def logout(request):
+    auth.logout(request)
+    return redirect("home")
+    
+    
