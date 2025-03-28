@@ -19,7 +19,11 @@ class Snippet(models.Model):
     is_public = models.BooleanField(default=True)
 
     def __repr__(self) -> str:
+        return f"Snippet({self.name}, {self.lang})"
+    
+    def __str__(self):
         return f"Snippet({self.name})"
+    
     
 class Comment(models.Model):
     text = models.TextField(max_length=1000)
@@ -27,7 +31,8 @@ class Comment(models.Model):
     author = models.ForeignKey(to=User, on_delete=models.CASCADE)
     snippet = models.ForeignKey(to=Snippet, on_delete=models.CASCADE, related_name='comments')
 
-
+    def __str__(self):
+        return f'Comment({self.text})'
 
 
 
