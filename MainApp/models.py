@@ -18,6 +18,9 @@ class Snippet(models.Model):
                         blank=True, null=True)
     is_public = models.BooleanField(default=True)
 
+    def __repr__(self) -> str:
+        return f"Snippet({self.name})"
+
 
 
 
